@@ -61,6 +61,7 @@ add_library(quirc STATIC
 target_include_directories(quirc PUBLIC ${quirc_SOURCE_DIR}/lib)
 
 add_subdirectory(core)
+add_subdirectory(app)
 
 enable_testing()
 add_subdirectory(tests)
