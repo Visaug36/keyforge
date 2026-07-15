@@ -183,9 +183,197 @@ std::string help_text() {
     return out;
 }
 
-// Task 12 replaces this stub with the real dispatcher.
-CommandOutcome execute_command(Session&, const std::string&, int64_t) {
-    return fail("not implemented yet");
+CommandOutcome execute_command(Session& session, const std::string& line, int64_t now) {
+    using Kind = CommandOutcome::Kind;
+    auto toks = tokenize(line);
+    if (!toks.ok()) return fail(toks.error.message);
+    if (toks.value->empty()) return fail("type a command — try 'help'");
+    const std::string cmd = to_lower((*toks.value)[0]);
+    if (!is_command_word(cmd)) {
+        std::string best;
+        int bestd = 3;
+        for (const auto& c : kCommands) {
+            int d = levenshtein(cmd, c);
+            if (d < bestd) { bestd = d; best = c; }
+        }
+        std::string msg = "unknown command '" + cmd + "'";
+        if (!best.empty()) msg += " — did you mean '" + best + "'?";
+        return fail(msg);
+    }
+    auto parsed = parse_args(*toks.value);
+    if (!parsed.ok()) return fail(parsed.error.message);
+    const ParsedArgs& a = *parsed.value;
+    Vault& v = session.vault();
+    CommandOutcome out;
+
+    if (cmd == "help") {
+        out.kind = Kind::Help;
+        out.message = help_text();
+        return out;
+    }
+    if (cmd == "lock") {
+        out.lock_requested = true;
+        out.message = "Vault locked.";
+        return out;
+    }
+    if (cmd == "gen") {
+        GenOptions o;
+        o.length = v.settings().gen_len;
+        o.symbols = v.settings().gen_symbols;
+        if (a.flags.count("--len")) {
+            auto n = parse_int(a.flags.at("--len"));
+            if (!n.ok()) return fail(n.error.message);
+            o.length = *n.value;
+        }
+        if (a.switches.count("--no-symbols")) o.symbols = false;
+        if (a.switches.count("--allow-ambiguous")) o.allow_ambiguous = true;
+        auto r = generate_password(o);
+        if (!r.ok()) return fail(r.error.message);
+        out.kind = Kind::Secret;
+        out.secret = *r.value;
+        out.secret_label = "generated password";
+        out.message = "Generated " + std::to_string(o.length) + "-character password:";
+        return out;
+    }
+    if (cmd == "list") {
+        std::string tag = a.flags.count("--tag") ? a.flags.at("--tag") : "";
+        out.kind = Kind::EntryList;
+        for (const Entry* e : v.list(tag)) out.entries.push_back(*e);
+        out.message = std::to_string(out.entries.size()) +
+                      (tag.empty() ? " entries" : " entries tagged '" + tag + "'");
+        return out;
+    }
+    if (cmd == "audit") {
+        auto findings = audit_vault(v, now);
+        if (findings.empty()) {
+            out.message = "No issues found — vault is healthy.";
+            return out;
+        }
+        out.message = std::to_string(findings.size()) + " finding(s):\n";
+        for (const auto& f : findings) out.message += "  " + f.name + ": " + f.issue + "\n";
+        return out;
+    }
+
+    // Everything below takes a <name> or <path> positional argument.
+    if (a.positional.empty()) return fail("usage: " + kUsage.at(cmd));
+    const std::string& arg0 = a.positional[0];
+
+    if (cmd == "add") {
+        if (!a.flags.count("--password"))
+            return fail("add requires --password (tip: run 'gen' first)");
+        auto totp = resolve_totp_flags(a);
+        if (!totp.ok()) return fail(totp.error.message);
+        Entry e;
+        e.name = arg0;
+        e.password = a.flags.at("--password");
+        if (a.flags.count("--username")) e.username = a.flags.at("--username");
+        if (a.flags.count("--url")) e.url = a.flags.at("--url");
+        if (a.flags.count("--notes")) e.notes = a.flags.at("--notes");
+        if (a.flags.count("--tags")) e.tags = split_tags(a.flags.at("--tags"));
+        if (totp.value->has_value()) e.totp_secret = **totp.value;
+        auto st = v.add(std::move(e), now);
+        if (!st.ok()) return fail(st.error.message);
+        out.vault_changed = true;
+        out.message = "Added '" + arg0 + "'.";
+        return out;
+    }
+    if (cmd == "update") {
+        auto totp = resolve_totp_flags(a);
+        if (!totp.ok()) return fail(totp.error.message);
+        EntryPatch p;
+        if (a.flags.count("--username")) p.username = a.flags.at("--username");
+        if (a.flags.count("--password")) p.password = a.flags.at("--password");
+        if (a.flags.count("--url")) p.url = a.flags.at("--url");
+        if (a.flags.count("--notes")) p.notes = a.flags.at("--notes");
+        if (a.flags.count("--tags")) p.tags = split_tags(a.flags.at("--tags"));
+        if (totp.value->has_value()) p.totp_secret = **totp.value;
+        auto st = v.update_entry(arg0, p, now);
+        if (!st.ok()) return fail(st.error.message);
+        out.vault_changed = true;
+        out.message = "Updated '" + arg0 + "'.";
+        return out;
+    }
+    if (cmd == "delete") {
+        if (!a.switches.count("--yes"))
+            return fail("refusing to delete '" + arg0 + "' without --yes");
+        auto st = v.remove(arg0);
+        if (!st.ok()) return fail(st.error.message);
+        out.vault_changed = true;
+        out.message = "Deleted '" + arg0 + "'.";
+        return out;
+    }
+    if (cmd == "show") {
+        const Entry* e = v.find(arg0);
+        if (!e) return fail("no entry named '" + arg0 + "'");
+        out.kind = Kind::EntryDetail;
+        out.entries.push_back(*e);
+        return out;
+    }
+    if (cmd == "retrieve") {
+        const Entry* e = v.find(arg0);
+        if (!e) return fail("no entry named '" + arg0 + "'");
+        std::string type = a.flags.count("--type") ? to_lower(a.flags.at("--type"))
+                                                   : "password";
+        std::string value;
+        if (type == "password") value = e->password;
+        else if (type == "username") value = e->username;
+        else if (type == "url") value = e->url;
+        else if (type == "notes") value = e->notes;
+        else if (type == "totp") {
+            if (e->totp_secret.empty()) return fail("'" + arg0 + "' has no TOTP configured");
+            auto code = totp_code(e->totp_secret, now);
+            if (!code.ok()) return fail(code.error.message);
+            value = *code.value;
+        } else {
+            return fail("unknown --type '" + type + "' (password|username|url|notes|totp)");
+        }
+        if (value.empty()) return fail("'" + arg0 + "' has no " + type);
+        out.kind = Kind::Secret;
+        out.secret = value;
+        out.secret_label = type + " for '" + arg0 + "'";
+        out.copy_to_clipboard = true;
+        out.message = "Copied " + type + " for '" + arg0 + "' to clipboard.";
+        return out;
+    }
+    if (cmd == "totp") {
+        const Entry* e = v.find(arg0);
+        if (!e) return fail("no entry named '" + arg0 + "'");
+        if (e->totp_secret.empty()) return fail("'" + arg0 + "' has no TOTP configured");
+        auto code = totp_code(e->totp_secret, now);
+        if (!code.ok()) return fail(code.error.message);
+        out.kind = Kind::Totp;
+        out.secret = *code.value;
+        out.totp_entry = e->name;
+        out.message = "TOTP for '" + e->name + "'";
+        return out;
+    }
+    if (cmd == "export") {
+        auto st = session.save();
+        if (!st.ok()) return fail(st.error.message);
+        st = session.export_copy(arg0);
+        if (!st.ok()) return fail(st.error.message);
+        out.message = "Exported encrypted vault to " + arg0;
+        return out;
+    }
+    if (cmd == "import") {
+        std::string format = a.flags.count("--format") ? to_lower(a.flags.at("--format"))
+                                                       : "csv";
+        if (format != "csv") return fail("only --format csv is supported");
+        std::ifstream in(arg0, std::ios::binary);
+        if (!in) return fail("cannot read " + arg0);
+        std::string text((std::istreambuf_iterator<char>(in)),
+                         std::istreambuf_iterator<char>());
+        auto report = import_csv(v, text, now);
+        if (!report.ok()) return fail(report.error.message);
+        out.vault_changed = report.value->imported > 0;
+        out.message = "Imported " + std::to_string(report.value->imported) + " entries.";
+        if (!report.value->skipped.empty()) {
+            out.message += " Skipped " + std::to_string(report.value->skipped.size()) + ":\n";
+            for (const auto& sk : report.value->skipped) out.message += "  " + sk + "\n";
+        }
+        return out;
+    }
+    return fail("unhandled command");  // unreachable: every kCommands entry is handled
 }
 
 }  // namespace vaultcore
