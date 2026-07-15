@@ -1391,7 +1391,7 @@ TEST_CASE("base32 decode") {
         CHECK(std::string(r.value->begin(), r.value->end()) == "fooba");
         auto r2 = base32_decode("MZXW6===");
         REQUIRE(r2.ok());
-        CHECK(std::string(r2.value->begin(), r2.value->end()) == "fo");
+        CHECK(std::string(r2.value->begin(), r2.value->end()) == "foo");
     }
     SUBCASE("lowercase and spaces tolerated") {
         auto r = base32_decode("mzxw 6ytb");
