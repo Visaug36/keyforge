@@ -1,4 +1,5 @@
 add_library(vaultcore STATIC
-  src/paths.cpp)
+  src/paths.cpp
+  src/crypto.cpp)
 target_include_directories(vaultcore PUBLIC include PRIVATE ${stb_SOURCE_DIR})
 target_link_libraries(vaultcore PUBLIC sodium nlohmann_json::nlohmann_json PRIVATE quirc)
