@@ -3,6 +3,8 @@
 #include <array>
 #include <cstdio>
 #include <cstring>
+#include <sstream>
+#include "vaultcore/util.hpp"
 
 namespace vaultcore {
 namespace {
@@ -90,6 +92,23 @@ std::array<uint8_t, 20> hmac_sha1(const uint8_t* key, size_t keylen,
     return outer.final();
 }
 
+std::string url_decode(const std::string& s) {
+    std::string out;
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (s[i] == '%' && i + 2 < s.size() &&
+            std::isxdigit(static_cast<unsigned char>(s[i + 1])) &&
+            std::isxdigit(static_cast<unsigned char>(s[i + 2]))) {
+            out += char(std::stoi(s.substr(i + 1, 2), nullptr, 16));
+            i += 2;
+        } else if (s[i] == '+') {
+            out += ' ';
+        } else {
+            out += s[i];
+        }
+    }
+    return out;
+}
+
 }  // namespace
 
 Result<std::vector<uint8_t>> base32_decode(std::string_view s) {
@@ -140,6 +159,42 @@ Result<std::string> totp_code(std::string_view base32_secret, int64_t unix_time,
 
 int totp_seconds_remaining(int64_t unix_time, int period) {
     return period - int(unix_time % period);
+}
+
+Result<OtpauthInfo> parse_otpauth_uri(const std::string& uri) {
+    const std::string prefix = "otpauth://totp/";
+    if (uri.rfind(prefix, 0) != 0)
+        return Result<OtpauthInfo>::failure(Err::BadUri, "not an otpauth://totp/ URI");
+    OtpauthInfo info;
+    auto qpos = uri.find('?');
+    info.label = url_decode(uri.substr(
+        prefix.size(), qpos == std::string::npos ? std::string::npos : qpos - prefix.size()));
+    if (qpos == std::string::npos)
+        return Result<OtpauthInfo>::failure(Err::BadUri, "missing '?secret=...' query");
+    std::stringstream ss(uri.substr(qpos + 1));
+    std::string kv;
+    while (std::getline(ss, kv, '&')) {
+        auto eq = kv.find('=');
+        if (eq == std::string::npos) continue;
+        std::string k = to_lower(kv.substr(0, eq));
+        std::string val = url_decode(kv.substr(eq + 1));
+        if (k == "secret") {
+            info.secret = val;
+        } else if (k == "digits") {
+            try { info.digits = std::stoi(val); } catch (...) { info.digits = -1; }
+            if (info.digits < 6 || info.digits > 8)
+                return Result<OtpauthInfo>::failure(Err::BadUri, "digits must be 6-8");
+        } else if (k == "period") {
+            try { info.period = std::stoi(val); } catch (...) { info.period = -1; }
+            if (info.period < 5 || info.period > 300)
+                return Result<OtpauthInfo>::failure(Err::BadUri, "period must be 5-300");
+        }
+    }
+    if (info.secret.empty())
+        return Result<OtpauthInfo>::failure(Err::BadUri, "missing secret parameter");
+    if (!base32_decode(info.secret).ok())
+        return Result<OtpauthInfo>::failure(Err::BadUri, "secret is not valid base32");
+    return Result<OtpauthInfo>::success(std::move(info));
 }
 
 }  // namespace vaultcore
