@@ -7,7 +7,7 @@ include(FetchContent)
 
 FetchContent_Declare(sodium
   GIT_REPOSITORY https://github.com/robinlinden/libsodium-cmake.git
-  GIT_TAG master)
+  GIT_TAG 9b2848dfc1b917a9410f0de9d81059b26cbfaa8d)
 set(SODIUM_DISABLE_TESTS ON CACHE BOOL "" FORCE)
 
 FetchContent_Declare(json
@@ -36,7 +36,7 @@ FetchContent_Declare(quirc
 
 FetchContent_Declare(stb
   GIT_REPOSITORY https://github.com/nothings/stb.git
-  GIT_TAG master)
+  GIT_TAG 31c1ad37456438565541f4919958214b6e762fb4)
 
 FetchContent_MakeAvailable(sodium json doctest glfw imgui quirc stb)
 
