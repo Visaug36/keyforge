@@ -280,10 +280,26 @@ void App::copy_secret(const std::string& value) {
 }
 
 void App::tick_timers() {
+    const double now = glfwGetTime();
     if (want_lock_) {
         want_lock_ = false;
         lock();
     }
+    // Clear the clipboard once the deadline passes — but only if it still
+    // holds our value (never stomp something the user copied since).
+    if (!clip_value_.empty() && now > clip_deadline_) {
+        const char* cur = glfwGetClipboardString(window_);
+        if (cur && clip_value_ == cur) glfwSetClipboardString(window_, "");
+        clip_value_.clear();
+    }
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f ||
+        ImGui::IsMouseClicked(0) || io.MouseWheel != 0.0f ||
+        io.InputQueueCharacters.Size > 0)
+        last_activity_ = now;
+    if (session_ && session_->vault().settings().auto_lock_min > 0 &&
+        now - last_activity_ > session_->vault().settings().auto_lock_min * 60.0)
+        lock();
 }
 
 void App::lock() {
