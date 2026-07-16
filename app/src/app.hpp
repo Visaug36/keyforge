@@ -12,7 +12,8 @@ namespace keyforge {
 class App {
 public:
     App(GLFWwindow* window, std::filesystem::path vault_path);
-    void frame();  // call once per ImGui frame
+    void frame();     // call once per ImGui frame
+    void shutdown();  // call once on app exit: wipes key, clears our clipboard
 
 private:
     enum class Screen { Unlock, Main };

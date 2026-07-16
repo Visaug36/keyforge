@@ -55,7 +55,8 @@ void App::draw_unlock() {
 
     if (submit) {
         std::string pw(master_buf_);
-        if (first_run && pw != std::string(master_confirm_buf_)) {
+        std::string confirm(master_confirm_buf_);
+        if (first_run && pw != confirm) {
             unlock_error_ = "passwords do not match";
         } else {
             auto r = first_run ? Session::create(vault_path_, pw)
@@ -72,6 +73,10 @@ void App::draw_unlock() {
                 unlock_error_ = r.error.message;
             }
         }
+        // Wipe every plaintext copy of the master password: the raw input
+        // buffers and the std::string copies we derived from them.
+        sodium_memzero(pw.data(), pw.size());
+        sodium_memzero(confirm.data(), confirm.size());
         sodium_memzero(master_buf_, sizeof master_buf_);
         sodium_memzero(master_confirm_buf_, sizeof master_confirm_buf_);
     }
@@ -302,6 +307,8 @@ void App::tick_timers() {
         lock();
 }
 
+void App::shutdown() { lock(); }  // lock-on-exit: wipe key + clear our clipboard
+
 void App::lock() {
     session_.reset();  // SecureBuffer destructor wipes the key
     screen_ = Screen::Unlock;
@@ -309,7 +316,9 @@ void App::lock() {
     has_result_ = false;
     reveal_password_ = false;
     show_settings_ = false;
-    input_buf_[0] = '\0';
+    // Full wipe (not just null-terminate): a typed `add ... --password P`
+    // line leaves the plaintext in the tail of the buffer otherwise.
+    sodium_memzero(input_buf_, sizeof input_buf_);
     unlock_error_.clear();
     if (!clip_value_.empty()) {
         const char* cur = glfwGetClipboardString(window_);
