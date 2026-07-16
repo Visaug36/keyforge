@@ -5,6 +5,8 @@
 #include <sodium.h>
 #include <cstdio>
 #include <ctime>
+#include <vaultcore/audit.hpp>
+#include <vaultcore/commands.hpp>
 #include <vaultcore/generator.hpp>
 #include <vaultcore/totp.hpp>
 
@@ -175,9 +177,34 @@ void App::draw_detail_edit() {
     }
 }
 
-// Stubs replaced in later tasks so the panel links now.
-void App::draw_detail_audit() { ImGui::TextDisabled("audit — implemented in Task 5"); }
-void App::run_audit() {}
+void App::run_audit() {
+    ui_.audit_findings = vaultcore::audit_vault(session_->vault(), int64_t(std::time(nullptr)));
+    ui_.mode = DetailMode::Audit;
+    ui_.selected_entry.clear();
+}
+
+void App::draw_detail_audit() {
+    ImGui::Text("Vault audit");
+    ImGui::SameLine();
+    if (ImGui::SmallButton("run again")) run_audit();
+    ImGui::SameLine();
+    if (ImGui::SmallButton("close")) ui_.mode = DetailMode::View;
+    ImGui::Separator();
+    if (ui_.audit_findings.empty()) {
+        ImGui::TextDisabled("No issues found — vault is healthy.");
+        return;
+    }
+    for (const auto& f : ui_.audit_findings) {
+        ImGui::PushID(&f);
+        if (ImGui::SmallButton("view")) {
+            ui_.selected_entry = f.name;
+            ui_.mode = DetailMode::View;
+        }
+        ImGui::SameLine();
+        ImGui::TextWrapped("%s: %s", f.name.c_str(), f.issue.c_str());
+        ImGui::PopID();
+    }
+}
 
 void App::draw_settings() {
     ImGui::SetNextWindowSize(ImVec2(460, 0), ImGuiCond_Appearing);
@@ -189,6 +216,31 @@ void App::draw_settings() {
         ImGui::Checkbox("Generator symbols", &s.gen_symbols);
         ImGui::Separator();
         ImGui::TextDisabled("Vault: %s", vault_path_.string().c_str());
+        ImGui::Separator();
+        ImGui::TextDisabled("Tools");
+        static char import_path[1024] = {};
+        static char export_path[1024] = {};
+        ImGui::PushItemWidth(-90);
+        ImGui::InputTextWithHint("##imp", "CSV path to import", import_path, sizeof import_path);
+        ImGui::PopItemWidth();
+        ImGui::SameLine();
+        if (ImGui::Button("Import CSV")) {
+            auto out = vaultcore::execute_command(
+                *session_, std::string("import \"") + import_path + "\"",
+                int64_t(std::time(nullptr)));
+            if (out.vault_changed) session_->save();
+            set_status(out.message, !out.ok);
+        }
+        ImGui::PushItemWidth(-90);
+        ImGui::InputTextWithHint("##exp", "path to export vault", export_path, sizeof export_path);
+        ImGui::PopItemWidth();
+        ImGui::SameLine();
+        if (ImGui::Button("Export vault")) {
+            auto out = vaultcore::execute_command(
+                *session_, std::string("export \"") + export_path + "\"",
+                int64_t(std::time(nullptr)));
+            set_status(out.message, !out.ok);
+        }
         if (ImGui::Button("Save settings")) {
             auto st = session_->save();
             set_status(st.ok() ? "Settings saved." : st.error.message, !st.ok());
