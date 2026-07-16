@@ -31,11 +31,16 @@ void App::draw_palette_overlay() {
     if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
         ui_.show_palette = false;
         ui_.palette_has_result = false;
+        ui_.palette_result = vaultcore::CommandOutcome{};  // drop any secrets it held
         sodium_memzero(ui_.palette_input, sizeof ui_.palette_input);
         return;
     }
 
     const ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImGui::GetBackgroundDrawList()->AddRectFilled(
+        vp->WorkPos,
+        ImVec2(vp->WorkPos.x + vp->WorkSize.x, vp->WorkPos.y + vp->WorkSize.y),
+        IM_COL32(0, 0, 0, 120));  // dim the panes behind the overlay
     ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f,
                                    vp->WorkPos.y + vp->WorkSize.y * 0.28f),
                             ImGuiCond_Always, ImVec2(0.5f, 0.0f));

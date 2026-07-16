@@ -220,6 +220,8 @@ void App::draw_settings() {
         ImGui::TextDisabled("Tools");
         static char import_path[1024] = {};
         static char export_path[1024] = {};
+        static std::string tool_msg;
+        static bool tool_err = false;
         ImGui::PushItemWidth(-90);
         ImGui::InputTextWithHint("##imp", "CSV path to import", import_path, sizeof import_path);
         ImGui::PopItemWidth();
@@ -228,7 +230,15 @@ void App::draw_settings() {
             auto out = vaultcore::execute_command(
                 *session_, std::string("import \"") + import_path + "\"",
                 int64_t(std::time(nullptr)));
-            if (out.vault_changed) session_->save();
+            if (out.vault_changed) {
+                auto st = session_->save();
+                if (!st.ok()) {
+                    out.ok = false;
+                    out.message += "\nWARNING: saving vault failed: " + st.error.message;
+                }
+            }
+            tool_msg = out.message;
+            tool_err = !out.ok;
             set_status(out.message, !out.ok);
         }
         ImGui::PushItemWidth(-90);
@@ -239,11 +249,24 @@ void App::draw_settings() {
             auto out = vaultcore::execute_command(
                 *session_, std::string("export \"") + export_path + "\"",
                 int64_t(std::time(nullptr)));
+            tool_msg = out.message;
+            tool_err = !out.ok;
             set_status(out.message, !out.ok);
         }
         if (ImGui::Button("Save settings")) {
             auto st = session_->save();
-            set_status(st.ok() ? "Settings saved." : st.error.message, !st.ok());
+            tool_msg = st.ok() ? "Settings saved." : st.error.message;
+            tool_err = !st.ok();
+            set_status(tool_msg, !st.ok());
+        }
+        // Render tool feedback inside this window — the shared status line at
+        // the bottom of the detail pane sits behind the Settings window.
+        if (!tool_msg.empty()) {
+            ImVec4 col = tool_err ? ImVec4(kErrRed[0], kErrRed[1], kErrRed[2], 1)
+                                  : ImVec4(0.36f, 0.62f, 0.43f, 1);
+            ImGui::PushStyleColor(ImGuiCol_Text, col);
+            ImGui::TextWrapped("%s", tool_msg.c_str());
+            ImGui::PopStyleColor();
         }
     }
     ImGui::End();

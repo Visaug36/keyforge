@@ -56,6 +56,7 @@ void App::begin_add() {
     ui_.edit = EditBuffers{};
     ui_.mode = DetailMode::Edit;
     ui_.edit_reveal = false;
+    ui_.reveal_password = false;  // don't carry a revealed view into the form
 }
 
 void App::begin_edit(const vaultcore::Entry& e) {
@@ -72,6 +73,7 @@ void App::begin_edit(const vaultcore::Entry& e) {
     ui_.edit.original_password = e.password;
     ui_.mode = DetailMode::Edit;
     ui_.edit_reveal = false;
+    ui_.reveal_password = false;  // reset the detail-view reveal on entering edit
 }
 
 void App::save_edit() {

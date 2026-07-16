@@ -147,6 +147,7 @@ void App::lock() {
     // (Only the char arrays — never memzero a struct containing std::string.)
     sodium_memzero(ui_.edit.password, sizeof ui_.edit.password);
     sodium_memzero(ui_.edit.totp_secret, sizeof ui_.edit.totp_secret);
+    sodium_memzero(ui_.edit.totp_uri, sizeof ui_.edit.totp_uri);  // may embed the secret
     sodium_memzero(ui_.edit.notes, sizeof ui_.edit.notes);
     sodium_memzero(ui_.palette_input, sizeof ui_.palette_input);
     sodium_memzero(ui_.search, sizeof ui_.search);
