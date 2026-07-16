@@ -81,6 +81,22 @@ std::vector<const Entry*> Vault::search(const std::string& query) const {
     return out;
 }
 
+std::vector<std::string> Vault::all_tags() const {
+    std::vector<std::string> out;
+    for (const auto& e : entries_) {
+        for (const auto& t : e.tags) {
+            bool seen = false;
+            for (const auto& kept : out)
+                if (iequals(kept, t)) { seen = true; break; }
+            if (!seen) out.push_back(t);
+        }
+    }
+    std::sort(out.begin(), out.end(), [](const std::string& a, const std::string& b) {
+        return to_lower(a) < to_lower(b);
+    });
+    return out;
+}
+
 std::string Vault::to_json() const {
     nlohmann::json j;
     j["settings"] = {{"auto_lock_min", settings_.auto_lock_min},

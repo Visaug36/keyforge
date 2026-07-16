@@ -9,6 +9,11 @@
 #include <cstdio>
 #include <string>
 
+static void drop_callback(GLFWwindow* w, int count, const char** paths) {
+    auto* app = static_cast<keyforge::App*>(glfwGetWindowUserPointer(w));
+    if (app) app->on_drop(count, paths);
+}
+
 int main(int argc, char** argv) {
     vaultcore::crypto_init();
     std::filesystem::path vault_path = vaultcore::default_vault_dir() / "vault.kfv";
@@ -23,7 +28,7 @@ int main(int argc, char** argv) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-    GLFWwindow* window = glfwCreateWindow(900, 680, "KeyForge", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1000, 680, "KeyForge", nullptr, nullptr);
     if (!window) {
         glfwTerminate();
         return 1;
@@ -39,6 +44,8 @@ int main(int argc, char** argv) {
     ImGui_ImplOpenGL3_Init("#version 150");
 
     keyforge::App app(window, vault_path);
+    glfwSetWindowUserPointer(window, &app);
+    glfwSetDropCallback(window, drop_callback);
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         ImGui_ImplOpenGL3_NewFrame();

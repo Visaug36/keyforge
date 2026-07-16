@@ -3,6 +3,17 @@
 A Bitwarden-style password manager that runs entirely on your machine.
 One encrypted file, no network, no accounts. C++20, Dear ImGui.
 
+## Window
+
+KeyForge opens a three-pane window: a tag sidebar (click a tag to filter,
+"All" resets), a searchable entry list, and a detail panel. Select an entry
+to view it (copy buttons, password reveal, live TOTP); **+ Add** and **Edit**
+open an inline form with a password generator and TOTP by secret, otpauth://
+URI, or a QR image — you can also drag a QR image onto the window. The
+sidebar's audit button flags weak/reused/old passwords; settings holds
+CSV import/export. Every command below is still available via a **Ctrl+K**
+(Cmd+K on macOS) palette overlay.
+
 ## Build
 
 Needs CMake ≥ 3.24 and a C++20 compiler. All libraries are fetched

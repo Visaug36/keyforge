@@ -39,6 +39,7 @@ public:
     const Entry* find(const std::string& name) const;
     std::vector<const Entry*> list(const std::string& tag = "") const;   // name-sorted
     std::vector<const Entry*> search(const std::string& query) const;    // name-sorted
+    std::vector<std::string> all_tags() const;  // dedup (case-insensitive), sorted
     const std::vector<Entry>& entries() const { return entries_; }
     Settings& settings() { return settings_; }
     const Settings& settings() const { return settings_; }
