@@ -128,4 +128,13 @@ void App::delete_selected() {
     ui_.mode = DetailMode::View;
 }
 
+void App::on_drop(int count, const char** paths) {
+    if (count < 1 || screen_ != Screen::Main) return;
+    if (ui_.mode != DetailMode::Edit) begin_add();  // dropping starts a new entry
+    std::snprintf(ui_.edit.totp_qr_path, sizeof ui_.edit.totp_qr_path, "%s", paths[0]);
+    ui_.edit.totp_secret[0] = '\0';
+    ui_.edit.totp_uri[0] = '\0';
+    set_status("QR image attached — Save to enroll TOTP", false);
+}
+
 }  // namespace keyforge
