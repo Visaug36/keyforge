@@ -129,3 +129,25 @@ TEST_CASE("from_json rejects garbage") {
     CHECK_FALSE(Vault::from_json("not json at all").ok());
     CHECK_FALSE(Vault::from_json("[1,2,3]").ok());
 }
+
+TEST_CASE("all_tags: sorted, case-insensitively deduplicated") {
+    Vault v;
+    Entry a = make("A", "1"); a.tags = {"Dev", "work"};
+    Entry b = make("B", "2"); b.tags = {"dev", "School"};
+    Entry c = make("C", "3");  // no tags
+    REQUIRE(v.add(a, 1).ok());
+    REQUIRE(v.add(b, 1).ok());
+    REQUIRE(v.add(c, 1).ok());
+
+    auto tags = v.all_tags();
+    // "Dev"/"dev" collapse to one (first-seen casing kept); sorted case-insensitively.
+    REQUIRE(tags.size() == 3);
+    CHECK(tags[0] == "Dev");
+    CHECK(tags[1] == "School");
+    CHECK(tags[2] == "work");
+}
+
+TEST_CASE("all_tags: empty vault yields no tags") {
+    Vault v;
+    CHECK(v.all_tags().empty());
+}
