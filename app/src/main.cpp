@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-    GLFWwindow* window = glfwCreateWindow(900, 680, "KeyForge", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1000, 680, "KeyForge", nullptr, nullptr);
     if (!window) {
         glfwTerminate();
         return 1;
