@@ -178,8 +178,6 @@ void App::draw_detail_edit() {
 // Stubs replaced in later tasks so the panel links now.
 void App::draw_detail_audit() { ImGui::TextDisabled("audit — implemented in Task 5"); }
 void App::run_audit() {}
-void App::draw_palette_overlay() {}
-void App::run_palette(const std::string&) {}
 
 void App::draw_settings() {
     ImGui::SetNextWindowSize(ImVec2(460, 0), ImGuiCond_Appearing);
