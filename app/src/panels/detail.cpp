@@ -2,7 +2,10 @@
 #include "theme.hpp"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#include <sodium.h>
+#include <cstdio>
 #include <ctime>
+#include <vaultcore/generator.hpp>
 #include <vaultcore/totp.hpp>
 
 namespace keyforge {
@@ -103,13 +106,77 @@ void App::draw_detail_view(const vaultcore::Entry& e) {
     }
 }
 
+void App::draw_detail_edit() {
+    bool adding = ui_.edit.original_name.empty();
+    ImGui::Text("%s", adding ? "Add entry" : ("Edit: " + ui_.edit.original_name).c_str());
+    ImGui::Separator();
+
+    ImGui::PushItemWidth(-1);
+    ImGui::TextDisabled("name");
+    ImGui::InputText("##name", ui_.edit.name, sizeof ui_.edit.name,
+                     adding ? 0 : ImGuiInputTextFlags_ReadOnly);
+    ImGui::TextDisabled("username");
+    ImGui::InputText("##user", ui_.edit.username, sizeof ui_.edit.username);
+
+    ImGui::TextDisabled("password");
+    ImGuiInputTextFlags pf = ui_.edit_reveal ? 0 : ImGuiInputTextFlags_Password;
+    ImGui::InputText("##pass", ui_.edit.password, sizeof ui_.edit.password, pf);
+    ImGui::PopItemWidth();
+    if (ImGui::SmallButton(ui_.edit_reveal ? "hide" : "show"))
+        ui_.edit_reveal = !ui_.edit_reveal;
+    ImGui::SameLine();
+    if (ImGui::SmallButton("gen")) {
+        auto& st = session_->vault().settings();
+        vaultcore::GenOptions o;
+        o.length = st.gen_len;
+        o.symbols = st.gen_symbols;
+        auto r = vaultcore::generate_password(o);
+        if (r.ok()) {
+            std::snprintf(ui_.edit.password, sizeof ui_.edit.password, "%s", r.value->c_str());
+            ui_.edit_reveal = true;
+        }
+    }
+
+    ImGui::PushItemWidth(-1);
+    ImGui::TextDisabled("url");
+    ImGui::InputText("##url", ui_.edit.url, sizeof ui_.edit.url);
+    ImGui::TextDisabled("notes");
+    ImGui::InputTextMultiline("##notes", ui_.edit.notes, sizeof ui_.edit.notes,
+                              ImVec2(-1, 60));
+    ImGui::TextDisabled("tags (comma-separated)");
+    ImGui::InputText("##tags", ui_.edit.tags, sizeof ui_.edit.tags);
+
+    ImGui::Separator();
+    ImGui::TextDisabled("TOTP — set at most one (or drag a QR image onto the window)");
+    ImGui::InputTextWithHint("##tsecret", "base32 secret", ui_.edit.totp_secret,
+                             sizeof ui_.edit.totp_secret);
+    ImGui::InputTextWithHint("##turi", "otpauth:// URI", ui_.edit.totp_uri,
+                             sizeof ui_.edit.totp_uri);
+    ImGui::InputTextWithHint("##tqr", "QR image path", ui_.edit.totp_qr_path,
+                             sizeof ui_.edit.totp_qr_path);
+    ImGui::PopItemWidth();
+    if (!adding) ImGui::Checkbox("Remove existing TOTP", &ui_.edit.remove_totp);
+
+    if (!ui_.edit.error.empty()) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(kErrRed[0], kErrRed[1], kErrRed[2], 1));
+        ImGui::TextWrapped("%s", ui_.edit.error.c_str());
+        ImGui::PopStyleColor();
+    }
+
+    ImGui::Separator();
+    if (ImGui::Button("Save")) save_edit();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel")) {
+        sodium_memzero(ui_.edit.password, sizeof ui_.edit.password);
+        sodium_memzero(ui_.edit.totp_secret, sizeof ui_.edit.totp_secret);
+        ui_.edit = EditBuffers{};
+        ui_.mode = DetailMode::View;
+        ui_.edit_reveal = false;
+    }
+}
+
 // Stubs replaced in later tasks so the panel links now.
-void App::draw_detail_edit() { ImGui::TextDisabled("edit — implemented in Task 3"); }
 void App::draw_detail_audit() { ImGui::TextDisabled("audit — implemented in Task 5"); }
-void App::begin_add() {}
-void App::begin_edit(const vaultcore::Entry&) {}
-void App::save_edit() {}
-void App::delete_selected() {}
 void App::run_audit() {}
 void App::draw_palette_overlay() {}
 void App::run_palette(const std::string&) {}

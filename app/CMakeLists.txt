@@ -6,6 +6,7 @@ add_executable(keyforge
   src/panels/sidebar.cpp
   src/panels/entry_list.cpp
   src/panels/detail.cpp
+  src/panels/actions.cpp
   src/panels/palette.cpp)
 target_include_directories(keyforge PRIVATE src)
 target_link_libraries(keyforge PRIVATE vaultcore imgui glfw OpenGL::GL)
