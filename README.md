@@ -1,7 +1,7 @@
 # KeyForge
 
 A **Bitwarden-style password manager written in C++** that runs entirely on
-your own machine. One encrypted file, no network, no accounts,and no cloud.
+your own machine. One encrypted file, no network, no accounts, and no cloud.
 
 A three-pane desktop window with a dark, terminal-style theme: browse your
 entries, copy passwords, generate strong ones, and manage two-factor (TOTP)
