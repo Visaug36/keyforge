@@ -7,6 +7,20 @@ A three-pane desktop window with a dark, terminal-style theme: browse your
 entries, copy passwords, generate strong ones, and manage two-factor (TOTP)
 codes — all offline.
 
+## Download
+
+Grab a ready-to-run build from the
+[**Releases**](https://github.com/Visaug36/keyforge/releases) page — no
+compiler needed.
+
+- **macOS** — download `KeyForge-macOS.zip`, unzip, move `KeyForge.app` to your
+  Applications folder, and open it. First launch: right-click the app →
+  **Open** (it's an unsigned build, so macOS asks for confirmation once).
+- **Windows** — download `KeyForge-Windows.zip`, unzip, and run `KeyForge.exe`.
+  If SmartScreen warns on first run: **More info → Run anyway**.
+
+Prefer to build it yourself? See [Build & run](#build--run) below.
+
 ## Screenshots
 
 *Previews rendered from the app's actual layout and theme.*
@@ -62,13 +76,16 @@ cmake --build build -j
 ./build/tests/core_tests
 
 # Launch the app.
-./build/app/keyforge
+#   macOS:   open build/app/KeyForge.app     (or double-click it in Finder)
+#   Linux:   ./build/app/KeyForge
+#   Windows: build\app\Release\KeyForge.exe
 ```
 
-To keep your vault somewhere specific (for example a USB stick), pass a path:
+To keep your vault somewhere specific (for example a USB stick), pass a path.
+On macOS, run the executable inside the bundle:
 
 ```bash
-./build/app/keyforge --vault /path/to/my-vault.kfv
+./build/app/KeyForge.app/Contents/MacOS/KeyForge --vault /path/to/my-vault.kfv
 ```
 
 On first launch you create a master password. After that, the same password

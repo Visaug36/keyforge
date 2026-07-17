@@ -1,0 +1,68 @@
+name: build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:   # lets you run a test build manually from the Actions tab
+
+permissions:
+  contents: write      # needed to attach files to a Release
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+      - name: Build
+        run: cmake --build build -j
+      - name: Test
+        run: ./build/tests/core_tests
+      - name: Package KeyForge.app
+        run: ditto -c -k --keepParent build/app/KeyForge.app KeyForge-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KeyForge-macOS
+          path: KeyForge-macOS.zip
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -B build -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+      - name: Build
+        run: cmake --build build --config Release -j
+      - name: Test
+        run: ./build/tests/Release/core_tests.exe
+      - name: Package KeyForge.exe
+        run: Compress-Archive -Path build/app/Release/KeyForge.exe -DestinationPath KeyForge-Windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KeyForge-Windows
+          path: KeyForge-Windows.zip
+
+  release:
+    needs: [macos, windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*.zip
+          body: |
+            ## KeyForge ${{ github.ref_name }}
+
+            A local, offline password manager. Download for your platform, unzip, and run.
+
+            - **macOS** — `KeyForge-macOS.zip` → unzip → move `KeyForge.app` to Applications and open it.
+              First launch: right-click the app → **Open** (it's an unsigned build, so macOS asks once).
+            - **Windows** — `KeyForge-Windows.zip` → unzip → run `KeyForge.exe`.
+              Windows SmartScreen may warn on first run (unsigned): **More info → Run anyway**.
+
+            No installation or accounts. Your vault is a single encrypted file on your machine.
